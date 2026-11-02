@@ -1,23 +1,25 @@
 using Microsoft.EntityFrameworkCore;
 using LarDesafio.API.Core.Entities;
 
-namespace LarDesafio.API.Data;
-
-public class AppDbContext : DbContext
+namespace LarDesafio.API.Data
 {
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
-
-    public DbSet<Pessoa> Pessoas => Set<Pessoa>();
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    public class AppDbContext : DbContext
     {
-        base.OnModelCreating(modelBuilder);
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) { }
 
-        modelBuilder.Entity<Pessoa>(entity =>
+        public DbSet<Pessoa> Pessoas { get; set; }
+        public DbSet<Telefone> Telefones { get; set; } // Adicionado
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            entity.HasKey(e => e.Id);
-            entity.Property(e => e.Nome).IsRequired().HasMaxLength(150);
-            entity.Property(e => e.Cpf).IsRequired().HasMaxLength(11);
-        });
+            base.OnModelCreating(modelBuilder);
+
+            // Configuração do relacionamento 1:N
+            modelBuilder.Entity<Telefone>()
+                .HasOne(t => t.Pessoa)
+                .WithMany(p => p.Telefones)
+                .HasForeignKey(t => t.PessoaId)
+                .OnDelete(DeleteBehavior.Cascade); // Se a pessoa for apagada, os seus telefones também são
+        }
     }
 }

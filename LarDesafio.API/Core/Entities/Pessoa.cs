@@ -1,10 +1,14 @@
-namespace LarDesafio.API.Core.Entities;
-
-public class Pessoa
+namespace LarDesafio.API.Core.Entities
 {
-    public int Id { get; set; }
-    public string Nome { get; set; } = string.Empty;
-    public string Cpf { get; set; } = string.Empty;
-    public DateTime DataNascimento { get; set; }
-    public bool Ativo { get; set; } = true;
+    public class Pessoa
+    {
+        public int Id { get; set; }
+        public string Nome { get; set; } = string.Empty;
+        public string Cpf { get; set; } = string.Empty;
+        public DateTime DataNascimento { get; set; }
+        public bool Ativo { get; set; } = true;
+
+        // Relacionamento 1:N (Uma pessoa possui vários telefones)
+        public ICollection<Telefone> Telefones { get; set; } = new List<Telefone>();
+    }
 }

@@ -2,7 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LarDesafio.API.Core.Entities;
 using LarDesafio.API.Data;
-using LarDesafio.API.DTOs;
+using LarDesafio.API.DTOs;          // Para CriarPessoaDto e AtualizarPessoaDto
+using LarDesafio.API.Core.DTOs;    // Para TelefoneResponseDto e PessoaResponseDto
 
 namespace LarDesafio.API.Controllers;
 
@@ -19,10 +20,25 @@ public class PessoasController : ControllerBase
 
     // GET: api/pessoas
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<PessoaResponseDto>>> ListarPessoas()
+    public async Task<ActionResult<IEnumerable<LarDesafio.API.Core.DTOs.PessoaResponseDto>>> ListarPessoas()
     {
         var pessoas = await _context.Pessoas
-            .Select(p => new PessoaResponseDto(p.Id, p.Nome, p.Cpf, p.DataNascimento, p.Ativo))
+            .Include(p => p.Telefones)
+            .Select(p => new LarDesafio.API.Core.DTOs.PessoaResponseDto
+            {
+                Id = p.Id,
+                Nome = p.Nome,
+                Cpf = p.Cpf,
+                DataNascimento = p.DataNascimento,
+                Ativo = p.Ativo,
+                Telefones = p.Telefones.Select(t => new TelefoneResponseDto
+                {
+                    Id = t.Id,
+                    Numero = t.Numero,
+                    Tipo = t.Tipo,
+                    PessoaId = t.PessoaId
+                }).ToList()
+            })
             .ToListAsync();
 
         return Ok(pessoas);
@@ -30,22 +46,39 @@ public class PessoasController : ControllerBase
 
     // GET: api/pessoas/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<PessoaResponseDto>> BuscarPessoaPorId(int id)
+    public async Task<ActionResult<LarDesafio.API.Core.DTOs.PessoaResponseDto>> BuscarPessoaPorId(int id)
     {
-        var pessoa = await _context.Pessoas.FindAsync(id);
+        var pessoa = await _context.Pessoas
+            .Include(p => p.Telefones)
+            .FirstOrDefaultAsync(p => p.Id == id);
 
         if (pessoa == null)
         {
             return NotFound(new { mensagem = "Pessoa não encontrada." });
         }
 
-        var response = new PessoaResponseDto(pessoa.Id, pessoa.Nome, pessoa.Cpf, pessoa.DataNascimento, pessoa.Ativo);
+        var response = new LarDesafio.API.Core.DTOs.PessoaResponseDto
+        {
+            Id = pessoa.Id,
+            Nome = pessoa.Nome,
+            Cpf = pessoa.Cpf,
+            DataNascimento = pessoa.DataNascimento,
+            Ativo = pessoa.Ativo,
+            Telefones = pessoa.Telefones.Select(t => new TelefoneResponseDto
+            {
+                Id = t.Id,
+                Numero = t.Numero,
+                Tipo = t.Tipo,
+                PessoaId = t.PessoaId
+            }).ToList()
+        };
+
         return Ok(response);
     }
 
     // POST: api/pessoas
     [HttpPost]
-    public async Task<ActionResult<PessoaResponseDto>> CriarPessoa([FromBody] CriarPessoaDto dto)
+    public async Task<ActionResult<LarDesafio.API.Core.DTOs.PessoaResponseDto>> CriarPessoa([FromBody] CriarPessoaDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Nome) || string.IsNullOrWhiteSpace(dto.Cpf))
         {
@@ -63,7 +96,15 @@ public class PessoasController : ControllerBase
         _context.Pessoas.Add(pessoa);
         await _context.SaveChangesAsync();
 
-        var response = new PessoaResponseDto(pessoa.Id, pessoa.Nome, pessoa.Cpf, pessoa.DataNascimento, pessoa.Ativo);
+        var response = new LarDesafio.API.Core.DTOs.PessoaResponseDto
+        {
+            Id = pessoa.Id,
+            Nome = pessoa.Nome,
+            Cpf = pessoa.Cpf,
+            DataNascimento = pessoa.DataNascimento,
+            Ativo = pessoa.Ativo,
+            Telefones = new List<TelefoneResponseDto>()
+        };
         
         return CreatedAtAction(nameof(BuscarPessoaPorId), new { id = pessoa.Id }, response);
     }
