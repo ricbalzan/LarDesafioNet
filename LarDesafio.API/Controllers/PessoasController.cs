@@ -2,8 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using LarDesafio.API.Core.Entities;
 using LarDesafio.API.Data;
-using LarDesafio.API.DTOs;          // Para CriarPessoaDto e AtualizarPessoaDto
-using LarDesafio.API.Core.DTOs;    // Para TelefoneResponseDto e PessoaResponseDto
+using LarDesafio.API.DTOs;
+using LarDesafio.API.Core.DTOs;
 
 namespace LarDesafio.API.Controllers;
 
@@ -12,78 +12,82 @@ namespace LarDesafio.API.Controllers;
 public class PessoasController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<PessoasController> _logger;
 
-    public PessoasController(AppDbContext context)
+    // Injeção de dependência do DbContext e do ILogger
+    public PessoasController(AppDbContext context, ILogger<PessoasController> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     // GET: api/pessoas
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<LarDesafio.API.Core.DTOs.PessoaResponseDto>>> ListarPessoas()
+    public async Task<ActionResult<IEnumerable<LarDesafio.API.DTOs.PessoaResponseDto>>> ListarPessoas()
     {
+        _logger.LogInformation("Consulta iniciada: Listando todas as pessoas com seus respetivos telefones.");
+
         var pessoas = await _context.Pessoas
             .Include(p => p.Telefones)
-            .Select(p => new LarDesafio.API.Core.DTOs.PessoaResponseDto
-            {
-                Id = p.Id,
-                Nome = p.Nome,
-                Cpf = p.Cpf,
-                DataNascimento = p.DataNascimento,
-                Ativo = p.Ativo,
-                Telefones = p.Telefones.Select(t => new TelefoneResponseDto
+            .Select(p => new LarDesafio.API.DTOs.PessoaResponseDto(
+                p.Id,
+                p.Nome,
+                p.Cpf,
+                p.DataNascimento,
+                p.Ativo,
+                p.Telefones.Select(t => new TelefoneResponseDto
                 {
                     Id = t.Id,
                     Numero = t.Numero,
                     Tipo = t.Tipo,
                     PessoaId = t.PessoaId
                 }).ToList()
-            })
+            ))
             .ToListAsync();
 
+        _logger.LogInformation("Consulta concluída: {Quantidade} pessoas retornadas do banco de dados.", pessoas.Count);
         return Ok(pessoas);
     }
 
     // GET: api/pessoas/5
     [HttpGet("{id}")]
-    public async Task<ActionResult<LarDesafio.API.Core.DTOs.PessoaResponseDto>> BuscarPessoaPorId(int id)
+    public async Task<ActionResult<LarDesafio.API.DTOs.PessoaResponseDto>> BuscarPessoaPorId(int id)
     {
+        _logger.LogInformation("Busca iniciada para Pessoa Id: {PessoaId}", id);
+
         var pessoa = await _context.Pessoas
             .Include(p => p.Telefones)
             .FirstOrDefaultAsync(p => p.Id == id);
 
         if (pessoa == null)
         {
+            _logger.LogWarning("Busca falhou: Pessoa com Id: {PessoaId} não foi encontrada.", id);
             return NotFound(new { mensagem = "Pessoa não encontrada." });
         }
 
-        var response = new LarDesafio.API.Core.DTOs.PessoaResponseDto
-        {
-            Id = pessoa.Id,
-            Nome = pessoa.Nome,
-            Cpf = pessoa.Cpf,
-            DataNascimento = pessoa.DataNascimento,
-            Ativo = pessoa.Ativo,
-            Telefones = pessoa.Telefones.Select(t => new TelefoneResponseDto
+        var response = new LarDesafio.API.DTOs.PessoaResponseDto(
+            pessoa.Id,
+            pessoa.Nome,
+            pessoa.Cpf,
+            pessoa.DataNascimento,
+            pessoa.Ativo,
+            pessoa.Telefones.Select(t => new TelefoneResponseDto
             {
                 Id = t.Id,
                 Numero = t.Numero,
                 Tipo = t.Tipo,
                 PessoaId = t.PessoaId
             }).ToList()
-        };
+        );
 
         return Ok(response);
     }
 
     // POST: api/pessoas
     [HttpPost]
-    public async Task<ActionResult<LarDesafio.API.Core.DTOs.PessoaResponseDto>> CriarPessoa([FromBody] CriarPessoaDto dto)
+    public async Task<ActionResult<LarDesafio.API.DTOs.PessoaResponseDto>> CriarPessoa([FromBody] CriarPessoaDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Nome) || string.IsNullOrWhiteSpace(dto.Cpf))
-        {
-            return BadRequest(new { mensagem = "Nome e CPF são obrigatórios." });
-        }
+        _logger.LogInformation("Tentativa de INCLUSÃO de pessoa: Nome={Nome}, CPF={Cpf}", dto.Nome, dto.Cpf);
 
         var pessoa = new Pessoa
         {
@@ -96,15 +100,16 @@ public class PessoasController : ControllerBase
         _context.Pessoas.Add(pessoa);
         await _context.SaveChangesAsync();
 
-        var response = new LarDesafio.API.Core.DTOs.PessoaResponseDto
-        {
-            Id = pessoa.Id,
-            Nome = pessoa.Nome,
-            Cpf = pessoa.Cpf,
-            DataNascimento = pessoa.DataNascimento,
-            Ativo = pessoa.Ativo,
-            Telefones = new List<TelefoneResponseDto>()
-        };
+        _logger.LogInformation("INCLUSÃO REALIZADA COM SUCESSO: Pessoa cadastrada com Id={PessoaId}, Nome={Nome}.", pessoa.Id, pessoa.Nome);
+
+        var response = new LarDesafio.API.DTOs.PessoaResponseDto(
+            pessoa.Id,
+            pessoa.Nome,
+            pessoa.Cpf,
+            pessoa.DataNascimento,
+            pessoa.Ativo,
+            new List<TelefoneResponseDto>()
+        );
         
         return CreatedAtAction(nameof(BuscarPessoaPorId), new { id = pessoa.Id }, response);
     }
@@ -113,9 +118,12 @@ public class PessoasController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> AtualizarPessoa(int id, [FromBody] AtualizarPessoaDto dto)
     {
+        _logger.LogInformation("Tentativa de ALTERAÇÃO de pessoa Id: {PessoaId}", id);
+
         var pessoa = await _context.Pessoas.FindAsync(id);
         if (pessoa == null)
         {
+            _logger.LogWarning("ALTERAÇÃO FALHOU: Pessoa com Id: {PessoaId} não foi localizada no banco.", id);
             return NotFound(new { mensagem = "Pessoa não encontrada." });
         }
 
@@ -127,6 +135,8 @@ public class PessoasController : ControllerBase
         _context.Entry(pessoa).State = EntityState.Modified;
         await _context.SaveChangesAsync();
 
+        _logger.LogInformation("ALTERAÇÃO REALIZADA COM SUCESSO: Pessoa Id={PessoaId} atualizada para Nome={Nome}, Ativo={Ativo}.", id, pessoa.Nome, pessoa.Ativo);
+
         return NoContent();
     }
 
@@ -134,14 +144,19 @@ public class PessoasController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> DeletarPessoa(int id)
     {
+        _logger.LogInformation("Tentativa de EXCLUSÃO (Soft Delete) para Pessoa Id: {PessoaId}", id);
+
         var pessoa = await _context.Pessoas.FindAsync(id);
         if (pessoa == null)
         {
+            _logger.LogWarning("EXCLUSÃO FALHOU: Pessoa com Id: {PessoaId} não encontrada.", id);
             return NotFound(new { mensagem = "Pessoa não encontrada." });
         }
 
         pessoa.Ativo = false;
         await _context.SaveChangesAsync();
+
+        _logger.LogWarning("EXCLUSÃO REALIZADA (SOFT DELETE): Pessoa Id={PessoaId} (Nome={Nome}) desativada no sistema.", id, pessoa.Nome);
 
         return NoContent();
     }

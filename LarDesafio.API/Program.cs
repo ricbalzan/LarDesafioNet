@@ -1,8 +1,24 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using LarDesafio.API.Data;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// 1. Configurar o Serilog para salvar em logs.txt e no Console
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .WriteTo.Console()
+    .WriteTo.File(
+        path: "logs.txt",
+        rollingInterval: RollingInterval.Day,
+        shared: true,
+        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+    )
+    .CreateLogger();
+
+// Substitui o logger padrão pelo Serilog
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -30,7 +46,6 @@ using (var scope = app.Services.CreateScope())
 
 if (app.Environment.IsDevelopment())
 {
-    // Corrigido para o UseSwagger correto
     app.UseSwagger(c =>
     {
         c.SerializeAsV2 = true;
