@@ -1,0 +1,6 @@
+@LarDesafio.API_HostAddress = http://localhost:5186
+
+GET {{LarDesafio.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
