@@ -35,7 +35,20 @@ builder.Services.AddSwaggerGen(c =>
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlite("Data Source=app.db"));
 
+// Habilita o CORS para permitir requisições do Frontend React
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
+app.UseCors("AllowAll");
 
 // GARANTE A CRIAÇÃO DA BASE DE DADOS E TABELAS NO INÍCIO
 using (var scope = app.Services.CreateScope())
